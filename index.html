@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUXURYGIFTS — Эксклюзивные подарки ручной работы</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    
+    <style>
+        .modal, .product-modal { display: none; }
+        .modal.active, .product-modal.active { display: flex !important; }
+
+        #master-panel.modal, #pin-modal.modal, #auth-modal.modal, #cart-modal.modal, #product-modal.product-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            z-index: 2000; align-items: center; justify-content: center; padding: 20px;
+        }
+
+        #master-panel .modal-content, #pin-modal .modal-content, #auth-modal .modal-content, #cart-modal .modal-content, #product-modal .product-modal-content {
+            background: #1a1a1a; color: #fff; max-width: 900px; width: 100%;
+            max-height: 90vh; overflow-y: auto; padding: 24px;
+            border-radius: 10px; font-family: 'Montserrat', sans-serif;
+        }
+        #pin-modal .modal-content, #auth-modal .modal-content { max-width: 400px; }
+
+        .order-card { border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 16px; margin-bottom: 14px; background: #121212; }
+        .order-card .order-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+        .order-status { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; text-transform: uppercase; }
+        .status-new { background: #2a5cff; color: #fff; }
+        .status-in_progress { background: #d9a100; color: #000; }
+        .status-done { background: #1f9e4a; color: #fff; }
+        .status-cancelled { background: #a32020; color: #fff; }
+        .order-items { font-size: 0.9rem; color: #bbb; margin: 8px 0; }
+        .order-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; align-items: center; }
+        .order-actions button, .order-actions select, .order-actions a { padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: #222; color: #fff; cursor: pointer; font-family: inherit; text-decoration: none; font-size: 0.85rem; }
+        .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .filter-row button { padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #fff; cursor: pointer; font-family: inherit; }
+        .filter-row button.active { background: #fff; color: #000; }
+
+        .pin-input { width: 100%; padding: 14px; font-size: 1.5rem; text-align: center; letter-spacing: 8px; background: #121212; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 8px; font-family: 'Montserrat', sans-serif; box-sizing: border-box; }
+        .pin-error { color: #ff5555; text-align: center; margin-top: 10px; font-size: 0.9rem; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo">LUXURY<span>GIFTS</span></div>
+        <nav>
+            <ul class="nav-links">
+                <li><a href="#catalog">Каталог</a></li>
+                <li><a href="#about">О нас</a></li>
+                <li><a href="#reviews">Отзывы</a></li>
+                <li><a href="#contacts">Контакты</a></li>
+            </ul>
+        </nav>
+        <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
+            <button id="open-master-btn" type="button" style="background: transparent; border: 1px solid #d9a100; color: #d9a100; padding: 8px 16px; font-size: 0.8rem; cursor: pointer; text-transform: uppercase;">Панель мастера</button>
+            <button id="open-auth-btn" type="button" style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 16px; font-size: 0.8rem; cursor: pointer; text-transform: uppercase;">Войти</button>
+            <button class="cart-btn" type="button" style="background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 8px 16px; font-size: 0.8rem; cursor: pointer; text-transform: uppercase;">Корзина (0)</button>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Элитные подарки ручной работы</h1>
+            <p>Эксклюзивные изделия из дерева и ценных материалов для тех, у кого всё есть</p>
+            <a href="#catalog" class="btn">Смотреть каталог</a>
+        </div>
+    </section>
+
+    <section id="catalog" class="catalog">
+        <div class="catalog-header">
+            <h2>Коллекция</h2>
+            <p>Авторские изделия ручной работы из ценных пород дерева</p>
+        </div>
+
+        <div class="products-grid">
+            <div class="product-card">
+                <div class="product-image"><img src="images/tovar1.jpeg" alt="Панно"></div>
+                <div class="product-info">
+                    <h3>Панно «Аист на карте РБ»</h3>
+                    <div class="product-bottom">
+                        <span class="price">650 BYN</span>
+                        <button class="buy-btn" type="button">В корзину</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-card">
+                <div class="product-image"><img src="images/tovar2.jpeg" alt="Глобус"></div>
+                <div class="product-info">
+                    <h3>Глобус</h3>
+                    <div class="product-bottom">
+                        <span class="price">1160 BYN</span>
+                        <button class="buy-btn" type="button">В корзину</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-card">
+                <div class="product-image"><img src="images/tovar3.jpeg" alt="Карета"></div>
+                <div class="product-info">
+                    <h3>Карета</h3>
+                    <div class="product-bottom">
+                        <span class="price">320 BYN</span>
+                        <button class="buy-btn" type="button">В корзину</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="about" class="about">
+        <div class="about-container">
+            <div class="about-text">
+                <h2>Сожская скань</h2>
+                <p>Мы создаем эксклюзивные предметы интерьера и подарки ручной работы, в которых природная текстура дерева сочетается со строгим современным дизайном.</p>
+                <p>Каждое изделие уникально: мы бережно отбираем ценные породы дерева, вручную обрабатываем каждую деталь и добиваемся идеальной формы.</p>
+                <div class="about-features">
+                    <div class="feature-item">
+                        <span class="feature-num">100%</span>
+                        <span class="feature-text">Эксклюзивный ручной труд</span>
+                    </div>
+                </div>
+            </div>
+            <div class="about-image"><img src="images/about-foto.jpg" alt="Мастерская"></div>
+        </div>
+    </section>
+
+    <section id="reviews" class="reviews-section">
+        <div class="reviews-container">
+            <div class="catalog-header">
+                <h2>Отзывы клиентов</h2>
+                <p>Что говорят те, кто уже приобрел наши изделия</p>
+            </div>
+
+            <div id="reviews-list" class="reviews-grid">
+                <p style="color:#888;">Загрузка отзывов...</p>
+            </div>
+
+            <div class="review-form-wrapper">
+                <h3>Оставить отзыв</h3>
+                <form id="review-form">
+                    <input type="text" id="review-name" placeholder="Ваше имя" readonly style="opacity:0.7;">
+                    <textarea id="review-message" placeholder="Ваш отзыв..." rows="4" required></textarea>
+                    <button type="submit" class="btn review-submit-btn">Отправить отзыв</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <footer id="contacts" class="footer">
+        <div class="footer-container">
+            <div class="footer-info">
+                <h2>Связаться с нами</h2>
+                <p>Обсудить индивидуальный заказ или задать вопрос по готовой продукции можно в удобном для вас мессенджере.</p>
+                <div class="contact-links">
+                    <a href="https://t.me" target="_blank" rel="noopener" class="contact-btn">Telegram</a>
+                    <a href="https://instagram.com" target="_blank" rel="noopener" class="contact-btn">Instagram</a>
+                </div>
+            </div>
+            <div class="footer-details">
+                <div class="detail-item">
+                    <span class="detail-label">Локация</span>
+                    <span class="detail-value">Минск / Есть доставка</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Режим работы</span>
+                    <span class="detail-value">Пн — Вс: 09:00 — 21:00</span>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 LUXURY GIFTS. Все права защищены.</p>
+        </div>
+    </footer>
+
+    <!-- Модальные окна -->
+    <div id="product-modal" class="product-modal">
+        <div class="product-modal-content">
+            <span class="close-product-modal" style="cursor:pointer;font-size:1.5rem;">&times;</span>
+            <div class="product-modal-grid">
+                <div class="modal-gallery">
+                    <img id="modal-main-img" src="" alt="Товар">
+                    <div class="modal-thumbnails">
+                        <img class="thumb active" src="" alt="1">
+                        <img class="thumb" src="" alt="2">
+                    </div>
+                </div>
+                <div class="product-modal-info">
+                    <h2 id="modal-title">Название</h2>
+                    <p id="modal-price" class="price">0 BYN</p>
+                    <p id="modal-desc" class="modal-description">Описание.</p>
+                    <button class="buy-btn modal-buy-btn" type="button">Добавить в корзину</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cart-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>Ваша корзина</h2>
+                <span class="close-btn cart-close-btn" style="cursor:pointer;font-size:1.5rem;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div id="cart-items"><p class="empty-cart">Корзина пока пуста</p></div>
+                
+                <!-- ПОЛЯ ДЛЯ ДАННЫХ КЛИЕНТА (Только Имя и Телефон) -->
+                <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="order-name" placeholder="Ваше Имя" required style="padding: 12px; background: #121212; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-family: 'Montserrat', sans-serif;">
+                    <input type="tel" id="order-phone" placeholder="Ваш Телефон (например, +375291234567)" required style="padding: 12px; background: #121212; border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 6px; font-family: 'Montserrat', sans-serif;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="total-price"><span>Итого:</span> <span id="cart-total-sum">0 BYN</span></div>
+                <button class="checkout-btn" id="checkout-btn" type="button">Оформить заказ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h2 id="auth-modal-title">Вход в систему</h2>
+                <span class="close-auth-btn" style="cursor:pointer;font-size:1.5rem;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="auth-form" style="display: flex; flex-direction: column; gap: 15px;">
+                    <input type="text" id="auth-username" placeholder="Ваше имя / Логин" required style="padding: 12px; background: #121212; border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: 'Montserrat', sans-serif;">
+                    <input type="password" id="auth-password" placeholder="Пароль" required style="padding: 12px; background: #121212; border: 1px solid rgba(255,255,255,0.1); color: #fff; font-family: 'Montserrat', sans-serif;">
+                    <button type="submit" class="checkout-btn" id="auth-submit-btn">Войти</button>
+                </form>
+                <p id="auth-toggle-text" style="text-align: center; margin-top: 15px; font-size: 0.85rem; color: #8c8c8c; cursor: pointer;">Нет аккаунта? Зарегистрироваться</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="pin-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>Вход для мастера</h2>
+                <span class="pin-close-btn" style="cursor:pointer;font-size:1.5rem;">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p style="color:#888;font-size:0.9rem;margin-top:0;">Введите PIN-код владельца магазина</p>
+                <form id="pin-form">
+                    <input type="password" id="pin-input" class="pin-input" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="••••" autocomplete="off" required>
+                    <div class="pin-error" id="pin-error"></div>
+                    <button type="submit" class="checkout-btn" style="width:100%;margin-top:12px;">Войти</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="master-panel" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+                <h2>Панель мастера</h2>
+                <span class="master-close-btn" style="cursor:pointer;font-size:1.5rem;">&times;</span>
+            </div>
+            <div class="filter-row" id="orders-filter">
+                <button data-filter="all" class="active" type="button">Все</button>
+                <button data-filter="new" type="button">Новые</button>
+                <button data-filter="in_progress" type="button">В работе</button>
+                <button data-filter="done" type="button">Выполнены</button>
+                <button data-filter="cancelled" type="button">Отменены</button>
+            </div>
+            <div id="orders-list"><p style="color:#888;">Загрузка заказов...</p></div>
+            <div style="margin-top:20px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                <button id="master-logout-btn" type="button" style="padding:8px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);background:#222;color:#fff;cursor:pointer;font-family:inherit;font-size:0.85rem;">Выйти из панели</button>
+                <span style="font-size:0.8rem;color:#666;">PIN по умолчанию: 2026</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Инициализация -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAa6UxPf9s04huWTIPxwbqQkS-hr6hXrsM",
+            authDomain: "luxurygiftsshop-dc78d.firebaseapp.com",
+            projectId: "luxurygiftsshop-dc78d",
+            storageBucket: "luxurygiftsshop-dc78d.firebasestorage.app",
+            messagingSenderId: "541165926115",
+            appId: "1:541165926115:web:9fb926488d3f1aac98b7d6"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+    </script>
+
+    <!-- Логика -->
+    <script>
+    (function() {
+        'use strict';
+
+        const $ = id => document.getElementById(id);
+        const qs = sel => document.querySelector(sel);
+        const qsa = sel => document.querySelectorAll(sel);
+
+        const openModal = el => { if(el) { el.classList.add('active'); el.style.display = 'flex'; } };
+        const closeModal = el => { if(el) { el.classList.remove('active'); el.style.display = 'none'; } };
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+
+        const SESSION_KEY = 'luxury_session';
+        const MASTER_KEY = 'luxury_master_session';
+        const MASTER_PIN = '2026';
+
+        const getSession = () => localStorage.getItem(SESSION_KEY);
+        const setSession = l => localStorage.setItem(SESSION_KEY, l);
+        const clearSession = () => localStorage.removeItem(SESSION_KEY);
+        const isMasterUnlocked = () => localStorage.getItem(MASTER_KEY) === '1';
+        const unlockMaster = () => localStorage.setItem(MASTER_KEY, '1');
+        const lockMaster = () => localStorage.removeItem(MASTER_KEY);
+
+        let cart = [];
+        let isLoginMode = true;
+        let currentFilter = 'all';
+
+        function setAuthMode(login) {
+            isLoginMode = login;
+            if ($('auth-modal-title')) $('auth-modal-title').textContent = login ? 'Вход в систему' : 'Регистрация';
+            if ($('auth-submit-btn'))  $('auth-submit-btn').textContent  = login ? 'Войти' : 'Зарегистрироваться';
+            if ($('auth-toggle-text')) $('auth-toggle-text').textContent = login ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти';
+        }
+
+        function renderAuthButton() {
+            const login = getSession();
+            const btn = $('open-auth-btn');
+            if (btn) {
+                btn.textContent = login ? 'Выйти (' + login + ')' : 'Войти';
+                btn.dataset.mode = login ? 'logout' : 'login';
+            }
+            const rn = $('review-name');
+            if (rn) rn.value = login || '';
+        }
+
+        function updateCart() {
+            const cartBtn = qs('.cart-btn');
+            if (cartBtn) cartBtn.textContent = 'Корзина (' + cart.length + ')';
+            const container = $('cart-items'), totalEl = $('cart-total-sum');
+            if (!container || !totalEl) return;
+
+            if (cart.length === 0) {
+                container.innerHTML = '<p class="empty-cart">Корзина пока пуста</p>';
+                totalEl.textContent = '0 BYN'; return;
+            }
+            container.innerHTML = cart.map((it, i) => 
+                '<div class="cart-item">' +
+                    '<span class="cart-item-title">' + escapeHtml(it.title) + '</span>' +
+                    '<span class="cart-item-price">' + it.price + ' BYN</span>' +
+                    '<button class="remove-item-btn" type="button" data-index="' + i + '" style="background:none;border:none;color:#8c8c8c;cursor:pointer;font-size:1rem;margin-left:10px;">&times;</button>' +
+                '</div>'
+            ).join('');
+            totalEl.textContent = cart.reduce((s, i) => s + i.price, 0) + ' BYN';
+        }
+
+        if ($('open-auth-btn')) $('open-auth-btn').addEventListener('click', function() {
+            if (this.dataset.mode === 'logout') {
+                if (confirm('Выйти из аккаунта?')) { clearSession(); cart = []; renderAuthButton(); updateCart(); }
+            } else openModal($('auth-modal'));
+        });
+
+        if ($('auth-toggle-text')) $('auth-toggle-text').addEventListener('click', () => setAuthMode(!isLoginMode));
+        if (qs('.close-auth-btn')) qs('.close-auth-btn').addEventListener('click', () => closeModal($('auth-modal')));
+        if ($('auth-modal')) $('auth-modal').addEventListener('click', e => { if (e.target === $('auth-modal')) closeModal($('auth-modal')); });
+
+        if ($('auth-form')) $('auth-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const login = $('auth-username').value.trim(), pw = $('auth-password').value;
+            if (login.length < 3) return alert('Логин минимум 3 символа.');
+            if (pw.length < 6) return alert('Пароль минимум 6 символов.');
+
+            let email = login;
+            if (!email.includes('@')) email = login + '@luxury.local';
+
+            if (!isLoginMode) {
+                firebase.auth().createUserWithEmailAndPassword(email, pw)
+                    .then((userCredential) => {
+                        db.collection('users').doc(userCredential.user.uid).set({
+                            login: login, email: email, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        setSession(login); alert('Аккаунт «' + login + '» создан!'); $('auth-form').reset(); closeModal($('auth-modal')); renderAuthButton();
+                    })
+                    .catch((error) => {
+                        if (error.code === 'auth/email-already-in-use') alert('Такой логин уже занят.');
+                        else alert('Ошибка: ' + error.message);
+                    });
+            } else {
+                firebase.auth().signInWithEmailAndPassword(email, pw)
+                    .then((userCredential) => {
+                        setSession(login); alert('С возвращением, ' + login + '!'); $('auth-form').reset(); closeModal($('auth-modal')); renderAuthButton();
+                    })
+                    .catch((error) => {
+                        if (error.code === 'auth/user-not-found') alert('Пользователь не найден.');
+                        else if (error.code === 'auth/wrong-password') alert('Неверный пароль.');
+                        else alert('Ошибка входа: ' + error.message);
+                    });
+            }
+        });
+
+        if (qs('.cart-btn')) qs('.cart-btn').addEventListener('click', () => {
+            if (!getSession()) { alert('Войдите, чтобы открыть корзину.'); setAuthMode(true); openModal($('auth-modal')); return; }
+            openModal($('cart-modal'));
+        });
+        if (qs('.cart-close-btn')) qs('.cart-close-btn').addEventListener('click', () => closeModal($('cart-modal')));
+        if ($('cart-modal')) $('cart-modal').addEventListener('click', e => { if (e.target === $('cart-modal')) closeModal($('cart-modal')); });
+
+        // Оформление заказа (Только Имя и Телефон)
+        if ($('checkout-btn')) $('checkout-btn').addEventListener('click', () => {
+            const login = getSession();
+            if (!login) { setAuthMode(true); openModal($('auth-modal')); return; }
+            if (cart.length === 0) return alert('Корзина пуста.');
+
+            const nameField = $('order-name');
+            const phoneField = $('order-phone');
+
+            if (!nameField || !phoneField) return alert('Ошибка: поля ввода не найдены. Нажмите Ctrl+F5.');
+
+            const clientName = nameField.value.trim();
+            const clientPhone = phoneField.value.trim();
+
+            if (!clientName || !clientPhone) return alert('Пожалуйста, заполните Имя и Телефон.');
+
+            const total = cart.reduce((s, i) => s + i.price, 0);
+            const orderData = { clientLogin: login, clientName, clientPhone, items: cart, total };
+
+            fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(orderData)
+            })
+            .then(response => response.json())
+            .then(order => {
+                alert('Заказ ' + order.id + ' оформлен!\nСумма: ' + total + ' BYN');
+                cart = []; updateCart(); closeModal($('cart-modal'));
+                nameField.value = ''; phoneField.value = ''; 
+            })
+            .catch(err => alert('Ошибка оформления: ' + err.message));
+        });
+
+        document.addEventListener('click', e => {
+            if (e.target.classList.contains('buy-btn')) {
+                e.stopPropagation();
+                if (!getSession()) { alert('Войдите в аккаунт.'); setAuthMode(true); openModal($('auth-modal')); return; }
+                const card = e.target.closest('.product-card'), modal = e.target.closest('.product-modal-content');
+                let title, priceText;
+                if (card) { title = card.querySelector('h3').textContent; priceText = card.querySelector('.price').textContent; }
+                else if (modal) { title = $('modal-title').textContent; priceText = $('modal-price').textContent; }
+                else return;
+                cart.push({ title: title, price: parseInt(priceText.replace(/\D/g,''), 10) || 0 });
+                updateCart();
+            }
+            if (e.target.classList.contains('remove-item-btn')) {
+                const i = parseInt(e.target.getAttribute('data-index'), 10);
+                if (!isNaN(i)) { cart.splice(i, 1); updateCart(); }
+            }
+        });
+
+        const productsData = { 'Панно «Аист на карте РБ»': 'Эксклюзивное настенное панно ручной работы.', 'Глобус': 'Интерьерный глобус премиум-класса.', 'Карета': 'Декоративная миниатюра кареты ручной работы.' };
+        qsa('.product-card').forEach(card => {
+            card.addEventListener('click', e => {
+                if (e.target.classList.contains('buy-btn')) return;
+                const t = card.querySelector('h3'), p = card.querySelector('.price'), img = card.querySelector('.product-image img');
+                if (!t) return;
+                if ($('modal-title')) $('modal-title').textContent = t.textContent;
+                if ($('modal-price')) $('modal-price').textContent = p ? p.textContent : '0 BYN';
+                if ($('modal-main-img')) $('modal-main-img').src = img ? img.src : '';
+                if ($('modal-desc')) $('modal-desc').textContent = productsData[t.textContent] || 'Уникальное изделие ручной работы.';
+                qsa('.modal-thumbnails img').forEach(x => { x.src = img ? img.src : ''; x.classList.remove('active'); });
+                if (qsa('.modal-thumbnails img')[0]) qsa('.modal-thumbnails img')[0].classList.add('active');
+                openModal($('product-modal'));
+            });
+        });
+
+        qsa('.modal-thumbnails img').forEach(x => x.addEventListener('click', () => {
+            if ($('modal-main-img')) $('modal-main-img').src = x.src;
+            qsa('.modal-thumbnails img').forEach(t => t.classList.remove('active'));
+            x.classList.add('active');
+        }));
+        if (qs('.close-product-modal')) qs('.close-product-modal').addEventListener('click', () => closeModal($('product-modal')));
+        if ($('product-modal')) $('product-modal').addEventListener('click', e => { if (e.target === $('product-modal')) closeModal($('product-modal')); });
+
+        function loadReviews() {
+            const list = $('reviews-list');
+            if (!list) return;
+            db.collection('reviews').orderBy('createdAt', 'desc').limit(20).get().then(snapshot => {
+                if (snapshot.empty) { list.innerHTML = '<p style="color:#888;">Отзывов пока нет.</p>'; return; }
+                let html = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const date = data.createdAt ? data.createdAt.toDate().toLocaleDateString('ru-RU') : 'Только что';
+                    html += '<div class="review-card"><div class="review-header"><span class="review-author">' + escapeHtml(data.author) + '</span><span class="review-date">' + date + '</span></div><p class="review-text">' + escapeHtml(data.text) + '</p></div>';
+                });
+                list.innerHTML = html;
+            }).catch(err => { list.innerHTML = '<p style="color:#ff5555;">Ошибка загрузки.</p>'; console.error(err); });
+        }
+
+        if ($('review-form')) $('review-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const login = getSession();
+            if (!login) { setAuthMode(true); openModal($('auth-modal')); return; }
+            const msg = $('review-message').value.trim();
+            if (!msg) return;
+            db.collection('reviews').add({ author: login, text: msg, createdAt: firebase.firestore.FieldValue.serverTimestamp() })
+              .then(() => { $('review-form').reset(); if ($('review-name')) $('review-name').value = login; loadReviews(); })
+              .catch(err => alert('Ошибка: ' + err.message));
+        });
+
+        const LABELS = { new: 'Новый', in_progress: 'В работе', done: 'Выполнен', cancelled: 'Отменён' };
+
+        function renderOrders() {
+            const list = $('orders-list');
+            if (!list) return;
+            list.innerHTML = '<p style="color:#888;">Загрузка заказов...</p>';
+            fetch('/api/orders')
+            .then(res => res.json())
+            .then(orders => {
+                if (currentFilter !== 'all') orders = orders.filter(o => o.status === currentFilter);
+                if (!orders.length) { list.innerHTML = '<p style="color:#888;">Заказов нет.</p>'; return; }
+
+                list.innerHTML = orders.map(o => {
+                    const date = o.createdAt ? new Date(o.createdAt).toLocaleString('ru-RU') : 'Только что';
+                    const items = o.items.map(i => escapeHtml(i.title) + ' — ' + i.price + ' BYN').join('<br>');
+                    const opts = Object.keys(LABELS).map(v => '<option value="' + v + '"' + (v === o.status ? ' selected' : '') + '>' + LABELS[v] + '</option>').join('');
+                    const tg = 'https://t.me/share/url?url=' + encodeURIComponent('Заказ ' + o.id) + '&text=' + encodeURIComponent('Здравствуйте! По заказу ' + o.id + ' на ' + o.total + ' BYN.');
+                    
+                    const clientInfo = `<div style="margin-bottom: 8px; font-size: 0.9rem; color: #aaa;">
+                        <b>Клиент:</b> ${escapeHtml(o.clientName || o.clientLogin)}<br>
+                        <b>Тел:</b> ${escapeHtml(o.clientPhone || 'не указан')}
+                    </div>`;
+
+                    return '<div class="order-card"><div class="order-head"><div><strong>' + o.id + '</strong><div style="font-size:.8rem;color:#888;">' + date + '</div></div><span class="order-status status-' + o.status + '">' + LABELS[o.status] + '</span></div>' + clientInfo + '<div class="order-items">' + items + '</div><div><b>Итого: ' + o.total + ' BYN</b></div><div class="order-actions"><select class="status-select" data-id="' + o.id + '">' + opts + '</select><a target="_blank" rel="noopener" href="' + tg + '">Написать клиенту</a></div></div>';
+                }).join('');
+
+                qsa('.status-select').forEach(sel => {
+                    sel.addEventListener('change', () => {
+                        fetch('/api/orders/' + sel.dataset.id, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: sel.value })
+                        }).then(() => renderOrders());
+                    });
+                });
+            }).catch(err => { list.innerHTML = '<p style="color:#ff5555;">Ошибка загрузки.</p>'; console.error(err); });
+        }
+
+        if ($('open-master-btn')) $('open-master-btn').addEventListener('click', () => {
+            if (isMasterUnlocked()) { renderOrders(); openModal($('master-panel')); }
+            else { if ($('pin-input')) $('pin-input').value = ''; if ($('pin-error')) $('pin-error').textContent = ''; openModal($('pin-modal')); setTimeout(() => $('pin-input')?.focus(), 100); }
+        });
+
+        if ($('pin-form')) $('pin-form').addEventListener('submit', e => {
+            e.preventDefault();
+            if ($('pin-input').value.trim() === MASTER_PIN) { 
+                unlockMaster(); closeModal($('pin-modal')); renderOrders(); openModal($('master-panel')); 
+            } else { 
+                if ($('pin-error')) $('pin-error').textContent = 'Неверный PIN-код'; 
+                if ($('pin-input')) { $('pin-input').value = ''; $('pin-input').focus(); }
+            }
+        });
+
+        if (qs('.pin-close-btn')) qs('.pin-close-btn').addEventListener('click', () => closeModal($('pin-modal')));
+        if ($('pin-modal')) $('pin-modal').addEventListener('click', e => { if (e.target === $('pin-modal')) closeModal($('pin-modal')); });
+        if (qs('.master-close-btn')) qs('.master-close-btn').addEventListener('click', () => closeModal($('master-panel')));
+        if ($('master-panel')) $('master-panel').addEventListener('click', e => { if (e.target === $('master-panel')) closeModal($('master-panel')); });
+        
+        if ($('master-logout-btn')) $('master-logout-btn').addEventListener('click', () => { 
+            lockMaster(); 
+            closeModal($('master-panel')); 
+            alert('Вы вышли из панели мастера.'); 
+        });
+
+        if ($('orders-filter')) $('orders-filter').addEventListener('click', e => {
+            const b = e.target.closest('button[data-filter]');
+            if (!b) return;
+            qsa('#orders-filter button').forEach(x => x.classList.remove('active'));
+            b.classList.add('active'); 
+            currentFilter = b.dataset.filter; 
+            renderOrders();
+        });
+
+        // Инициализация при загрузке страницы
+        setAuthMode(true);
+        renderAuthButton();
+        updateCart();
+        loadReviews();
+
+    })(); 
+    </script> 
+</body> 
+</html>
